@@ -1,0 +1,227 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <iomanip>
+
+class User {
+private:
+    std::string name;
+    std::string email;
+    std::string phone;
+public:
+    User() : name(""), email(""), phone("") {}
+    User(std::string n, std::string e, std::string p) : name(n), email(e), phone(p) {}
+    std::string getName() const { return name; }
+    std::string getEmail() const { return email; }
+    std::string getPhone() const { return phone; }
+    void setName(std::string n) { name = n; }
+    void setEmail(std::string e) { email = e; }
+    void setPhone(std::string p) { phone = p; }
+};
+
+class VehicleOwner : public User {
+public:
+    VehicleOwner() : User() {}
+    VehicleOwner(std::string n, std::string e, std::string p) : User(n, e, p) {}
+};
+
+class Vehicle {
+private:
+    std::string plateNumber;
+    std::string vehicleType;
+    int year;
+    VehicleOwner owner;
+public:
+    Vehicle() : plateNumber(""), vehicleType(""), year(0) {}
+    Vehicle(std::string p, std::string t, int y, VehicleOwner o) 
+        : plateNumber(p), vehicleType(t), year(y), owner(o) {}
+    std::string getPlateNumber() const { return plateNumber; }
+    std::string getVehicleType() const { return vehicleType; }
+    int getYear() const { return year; }
+    VehicleOwner getOwner() const { return owner; }
+    void setPlateNumber(std::string p) { plateNumber = p; }
+    void setVehicleType(std::string t) { vehicleType = t; }
+    void setYear(int y) { year = y; }
+    void setOwner(VehicleOwner o) { owner = o; }
+};
+
+bool validateEmail(const std::string& email) {
+    if (email.empty()) return false;
+    size_t atPos = email.find('@');
+    if (atPos == 0 || atPos == std::string::npos || atPos == email.length() - 1) return false;
+    size_t dotPos = email.find('.', atPos);
+    return dotPos != std::string::npos && dotPos != email.length() - 1;
+}
+
+bool validatePhone(const std::string& phone) {
+    if (phone.length() != 13 || phone.substr(0, 4) != "+250") return false;
+    for (size_t i = 4; i < phone.length(); ++i) {
+        if (!isdigit(phone[i])) return false;
+    }
+    return true;
+}
+
+bool validatePlate(const std::string& plate) {
+    if (plate.length() < 5 || plate.length() > 8) return false;
+    if (!isalpha(plate[0])) return false;
+    return true;
+}
+
+void saveToFile(const Vehicle& v) {
+    std::ofstream file("records.txt", std::ios::app);
+    if (file.is_open()) {
+        file << v.getPlateNumber() << "," 
+             << v.getVehicleType() << "," 
+             << v.getYear() << "," 
+             << v.getOwner().getName() << "," 
+             << v.getOwner().getEmail() << "," 
+             << v.getOwner().getPhone() << std::endl;
+        file.close();
+    }
+}
+
+std::vector<Vehicle> loadFromFile() {
+    std::vector<Vehicle> vehicles;
+    std::ifstream file("records.txt");
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+        std::stringstream ss(line);
+        std::string plate, type, yearStr, name, email, phone;
+        std::getline(ss, plate, ',');
+        std::getline(ss, type, ',');
+        std::getline(ss, yearStr, ',');
+        std::getline(ss, name, ',');
+        std::getline(ss, email, ',');
+        std::getline(ss, phone, ',');
+        int year = std::stoi(yearStr);
+        VehicleOwner owner(name, email, phone);
+        Vehicle v(plate, type, year, owner);
+        vehicles.push_back(v);
+    }
+    file.close();
+    return vehicles;
+}
+
+void addRecord() {
+    std::string plate, type, name, email, phone;
+    int year;
+    VehicleOwner owner;
+    Vehicle v;
+
+    do {
+        std::cout << "Enter Plate Number (e.g. RAA123A): ";
+        std::cin >> plate;
+    } while (!validatePlate(plate));
+
+    std::cout << "Enter Vehicle Type: ";
+    std::cin.ignore();
+    std::getline(std::cin, type);
+
+    do {
+        std::cout << "Enter Year: ";
+        std::cin >> year;
+    } while (year < 1900 || year > 2026);
+
+    std::cout << "Enter Owner Name: ";
+    std::cin.ignore();
+    std::getline(std::cin, name);
+
+    do {
+        std::cout << "Enter Email: ";
+        std::cin >> email;
+    } while (!validateEmail(email));
+
+    do {
+        std::cout << "Enter Phone (+250...): ";
+        std::cin >> phone;
+    } while (!validatePhone(phone));
+
+    owner.setName(name);
+    owner.setEmail(email);
+    owner.setPhone(phone);
+    v.setPlateNumber(plate);
+    v.setVehicleType(type);
+    v.setYear(year);
+    v.setOwner(owner);
+
+    saveToFile(v);
+    std::cout << "Record added successfully!\n";
+}
+
+void searchRecord() {
+    std::string plate;
+    std::cout << "Enter Plate Number to search: ";
+    std::cin >> plate;
+
+    std::vector<Vehicle> vehicles = loadFromFile();
+    bool found = false;
+    for (const auto& v : vehicles) {
+        if (v.getPlateNumber() == plate) {
+            std::cout << "\n=== Vehicle Details ===\n";
+            std::cout << "Plate: " << v.getPlateNumber() << "\n";
+            std::cout << "Type: " << v.getVehicleType() << "\n";
+            std::cout << "Year: " << v.getYear() << "\n";
+            std::cout << "Owner: " << v.getOwner().getName() << "\n";
+            std::cout << "Email: " << v.getOwner().getEmail() << "\n";
+            std::cout << "Phone: " << v.getOwner().getPhone() << "\n";
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        std::cout << "Vehicle with plate " << plate << " not found.\n";
+    }
+}
+
+void displayAll() {
+    std::vector<Vehicle> vehicles = loadFromFile();
+    if (vehicles.empty()) {
+        std::cout << "No records found.\n";
+        return;
+    }
+
+    std::cout << "\n" << std::left 
+              << std::setw(12) << "Plate" 
+              << std::setw(15) << "Type" 
+              << std::setw(8) << "Year" 
+              << std::setw(25) << "Owner" 
+              << std::setw(30) << "Email" 
+              << "Phone" << "\n";
+    std::cout << std::string(100, '-') << "\n";
+
+    for (const auto& v : vehicles) {
+        std::cout << std::left 
+                  << std::setw(12) << v.getPlateNumber()
+                  << std::setw(15) << v.getVehicleType()
+                  << std::setw(8) << v.getYear()
+                  << std::setw(25) << v.getOwner().getName()
+                  << std::setw(30) << v.getOwner().getEmail()
+                  << v.getOwner().getPhone() << "\n";
+    }
+}
+
+int main() {
+    int choice;
+    do {
+        std::cout << "\n=== Vehicle Registration System ===\n";
+        std::cout << "1. Add New Record\n";
+        std::cout << "2. Search by Plate Number\n";
+        std::cout << "3. Display All Records\n";
+        std::cout << "4. Exit\n";
+        std::cout << "Enter choice: ";
+        std::cin >> choice;
+
+        switch (choice) {
+            case 1: addRecord(); break;
+            case 2: searchRecord(); break;
+            case 3: displayAll(); break;
+            case 4: std::cout << "Goodbye!\n"; break;
+            default: std::cout << "Invalid choice!\n";
+        }
+    } while (choice != 4);
+
+    return 0;
+}
